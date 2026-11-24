@@ -4,15 +4,19 @@
 The image (entry.png, 1024x1024) was rendered locally in the builder session
 with Pillow and is shipped in this repository. This program uses only the
 Python standard library: it verifies the shipped file (PNG magic bytes,
-size, SHA-256, 1 MiB gate) and copies it byte-for-byte to /output/entry.png.
-It is deterministic: two runs write the same bytes.
+IHDR dimensions 1024x1024, size, SHA-256, 1 MiB gate) and copies it
+byte-for-byte to /output/entry.png. It is deterministic: two runs write
+the same bytes.
 """
 import hashlib
 import pathlib
+import struct
 import sys
 
 EXPECTED_SHA256 = "e6e1e3ebb02a4bfc45a4aa3fcc88bfeff6be48f0050d6a15a7d2f4a566ee23c7"
 EXPECTED_SIZE = 187527
+EXPECTED_WIDTH = 1024
+EXPECTED_HEIGHT = 1024
 MAX_BYTES = 1048576
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
@@ -22,6 +26,14 @@ def main() -> int:
     data = src.read_bytes()
     if data[:8] != PNG_MAGIC:
         print("entry.png is not a PNG", file=sys.stderr)
+        return 1
+    if len(data) < 33 or data[12:16] != b"IHDR":
+        print("entry.png has no IHDR chunk", file=sys.stderr)
+        return 1
+    width, height = struct.unpack(">II", data[16:24])
+    if (width, height) != (EXPECTED_WIDTH, EXPECTED_HEIGHT):
+        print(f"entry.png is {width}x{height}, expected "
+              f"{EXPECTED_WIDTH}x{EXPECTED_HEIGHT}", file=sys.stderr)
         return 1
     if len(data) != EXPECTED_SIZE:
         print(f"entry.png size {len(data)} != {EXPECTED_SIZE}", file=sys.stderr)
